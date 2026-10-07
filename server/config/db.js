@@ -8,7 +8,9 @@ const connectDB = async () => {
     return conn;
   } catch (error) {
     console.error("❌ MongoDB connection error:", error.message);
-    process.exit(1);
+    if (!process.env.MONGO_URI || process.env.MONGO_URI.includes("127.0.0.1")) {
+      console.error("👉 Tip: For Render/Cloud deployment, please add 'MONGO_URI' (MongoDB Atlas connection string) to your Render Environment Variables.");
+    }
   }
 };
 
