@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef } from "react";
 import { useNavigate } from "react-router";
-import axios from "axios";
+import api from "../services/api";
 import { lessonsData } from "../data/lessonsData";
 
 function Dashboard() {
@@ -32,8 +32,8 @@ function Dashboard() {
       return;
     }
 
-    axios
-      .get(`http://localhost:3000/api/users/${user._id}`)
+    api
+      .get(`/users/${user._id}`)
       .then((res) => {
         if (res.data?.user) {
           setUser(res.data.user);

@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
-import axios from "axios";
 import { useNavigate } from "react-router";
+import api from "../services/api";
 import { getRandomAssessmentQuestions } from "../data/questionBank";
 
 function Assessment() {
@@ -104,8 +104,8 @@ function Assessment() {
 
     if (user?._id) {
       try {
-        const response = await axios.patch(
-          `http://localhost:3000/api/users/${user._id}/assessment`,
+        const response = await api.patch(
+          `/users/${user._id}/assessment`,
           {
             score: finalScore,
             total: questions.length,

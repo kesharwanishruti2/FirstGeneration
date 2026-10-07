@@ -1,6 +1,6 @@
 import { useLocation, useNavigate } from "react-router";
-import axios from "axios";
 import { useEffect, useRef } from "react";
+import api from "../services/api";
 import { lessonsData } from "../data/lessonsData";
 
 function QuizResult() {
@@ -44,7 +44,7 @@ function QuizResult() {
     const saveQuizAndProgress = async () => {
       try {
         // 1. Save Quiz Record with answers
-        const quizRes = await axios.post(`http://localhost:3000/api/users/${user._id}/quiz`, {
+        const quizRes = await api.post(`/users/${user._id}/quiz`, {
           quizId,
           score,
           total,
@@ -64,8 +64,8 @@ function QuizResult() {
             Math.round((updatedLessonsCompleted / lessonsData.length) * 100)
           );
 
-          const progressRes = await axios.patch(
-            `http://localhost:3000/api/users/${user._id}/progress`,
+          const progressRes = await api.patch(
+            `/users/${user._id}/progress`,
             {
               progress: updatedProgress,
               lessonsCompleted: updatedLessonsCompleted

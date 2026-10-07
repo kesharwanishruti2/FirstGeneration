@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate, useLocation, Link } from "react-router";
-import axios from "axios";
+import api from "../services/api";
 
 const Login = () => {
   const location = useLocation();
@@ -39,7 +39,7 @@ const Login = () => {
     setIsNotRegistered(false);
 
     try {
-      const response = await axios.post("http://localhost:3000/api/users/login", {
+      const response = await api.post("/users/login", {
         email: email.trim(),
         password: password
       });

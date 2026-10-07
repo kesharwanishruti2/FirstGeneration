@@ -1,6 +1,6 @@
-import axios from "axios";
 import { useState, useEffect } from "react";
 import { useNavigate, Link } from "react-router";
+import api from "../services/api";
 
 const Register = () => {
   const navigate = useNavigate();
@@ -41,7 +41,7 @@ const Register = () => {
     setErrorMsg("");
 
     try {
-      const response = await axios.post("http://localhost:3000/api/users/signup", {
+      const response = await api.post("/users/signup", {
         name: name.trim(),
         email: email.trim(),
         password: password
@@ -54,8 +54,8 @@ const Register = () => {
       if (pendingAssessmentRaw) {
         try {
           const pendingAssessment = JSON.parse(pendingAssessmentRaw);
-          await axios.patch(
-            `http://localhost:3000/api/users/${user._id}/assessment`,
+          await api.patch(
+            `/users/${user._id}/assessment`,
             pendingAssessment
           );
           localStorage.removeItem("pendingAssessment");

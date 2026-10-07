@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { useNavigate, useParams } from "react-router";
-import axios from "axios";
+import api from "../services/api";
 import { lessonsData } from "../data/lessonsData";
 
 function Lesson() {
@@ -56,7 +56,7 @@ function Lesson() {
     const updatedProgress = Math.min(100, Math.round((updatedCompleted / totalLessons) * 100));
 
     try {
-      const res = await axios.patch(`http://localhost:3000/api/users/${user._id}/progress`, {
+      const res = await api.patch(`/users/${user._id}/progress`, {
         lessonsCompleted: updatedCompleted,
         progress: updatedProgress
       });
