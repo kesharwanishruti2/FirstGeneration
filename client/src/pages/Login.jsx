@@ -1,8 +1,9 @@
-import axios from "axios";
 import { useState, useEffect } from "react";
-import { useNavigate, Link } from "react-router";
+import { useNavigate, useLocation, Link } from "react-router";
+import axios from "axios";
 
-const Register = () => {
+const Login = () => {
+  const location = useLocation();
   const navigate = useNavigate();
 
   // If already logged in, send directly to dashboard
@@ -18,69 +19,50 @@ const Register = () => {
     } catch (e) {}
   }, [navigate]);
 
-  const [name, setName] = useState("");
-  const [email, setEmail] = useState("");
+  const [email, setEmail] = useState(location.state?.registeredEmail || "");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [errorMsg, setErrorMsg] = useState("");
+  const [errorMsg, setErrorMsg] = useState(location.state?.redirectMsg || "");
+  const [successMsg, setSuccessMsg] = useState(location.state?.successMsg || "");
+  const [isNotRegistered, setIsNotRegistered] = useState(false);
 
-  const handleSubmit = async (e) => {
+  const handleLogin = async (e) => {
     e.preventDefault();
-    if (!name.trim() || !email.trim()) {
-      setErrorMsg("Please fill in your name and email.");
-      return;
-    }
-
-    if (!password || password.length < 6) {
-      setErrorMsg("Please choose a password with at least 6 characters.");
+    if (!email.trim() || !password) {
+      setErrorMsg("Please enter both email and password.");
       return;
     }
 
     setLoading(true);
     setErrorMsg("");
+    setIsNotRegistered(false);
 
     try {
-      const response = await axios.post("http://localhost:3000/api/users/signup", {
-        name: name.trim(),
+      const response = await axios.post("http://localhost:3000/api/users/login", {
         email: email.trim(),
         password: password
       });
 
       const user = response.data.user;
+      localStorage.setItem("user", JSON.stringify(user));
 
-      // If user took the assessment prior to registering, save it now
-      const pendingAssessmentRaw = localStorage.getItem("pendingAssessment");
-      if (pendingAssessmentRaw) {
-        try {
-          const pendingAssessment = JSON.parse(pendingAssessmentRaw);
-          await axios.patch(
-            `http://localhost:3000/api/users/${user._id}/assessment`,
-            pendingAssessment
-          );
-          localStorage.removeItem("pendingAssessment");
-        } catch (e) {
-          console.warn("Could not attach pending assessment:", e);
-        }
-      }
-
-      // Do NOT auto-login. Redirect user to Login page so they must log in explicitly!
-      navigate("/login", {
-        state: {
-          successMsg: "Registration successful! Please log in with your email and password.",
-          registeredEmail: email.trim()
-        }
-      });
-    } catch (error) {
-      console.error("Registration error:", error);
-      if (error.response?.status === 409) {
-        setErrorMsg("An account with this email already exists. Please sign in instead.");
+      // If user hasn't taken the assessment yet, guide them to assessment; otherwise go to dashboard
+      const currentLevel = user?.assessment?.level;
+      if (!currentLevel || currentLevel === "Not assessed") {
+        navigate("/assessment");
       } else {
-        setErrorMsg(
-          error.response?.data?.message ||
-          "Could not connect to server. Check if the backend is running on port 3000."
-        );
+        navigate("/dashboard");
       }
+    } catch (error) {
+      console.error("Login failed:", error);
+      const isUnregistered = error.response?.status === 404 || error.response?.data?.notRegistered;
+      setIsNotRegistered(!!isUnregistered);
+
+      setErrorMsg(
+        error.response?.data?.message ||
+        "Could not connect to server. Please ensure the backend is running on port 3000."
+      );
     } finally {
       setLoading(false);
     }
@@ -109,7 +91,7 @@ const Register = () => {
         </div>
       </header>
 
-      {/* Main Registration Card */}
+      {/* Main Login Card */}
       <main className="flex flex-1 items-center justify-center px-4 py-12">
         <div className="w-full max-w-md">
           {/* Card Container */}
@@ -118,42 +100,52 @@ const Register = () => {
             {/* Header Badge & Title */}
             <div className="text-center">
               <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-[#DCEFE8] text-2xl shadow-inner">
-                🌱
+                🔑
               </div>
               <h1 className="mt-4 text-2xl font-extrabold tracking-tight text-[#173B3A]">
-                Create Your Account
+                Welcome Back
               </h1>
               <p className="mt-1.5 text-xs text-[#71817D]">
-                Join NetLearn for free and start mastering the digital world today.
+                Enter your registered credentials to continue your learning journey.
               </p>
             </div>
 
-            {/* Error Message Alert */}
-            {errorMsg && (
-              <div className="mt-5 flex items-start gap-2.5 rounded-xl border border-rose-200 bg-rose-50/90 p-3.5 text-xs text-rose-800 animate-in fade-in duration-200">
-                <span className="shrink-0 text-sm">⚠️</span>
-                <span className="leading-relaxed font-medium">{errorMsg}</span>
+            {/* Success Message Alert (from Registration) */}
+            {successMsg && (
+              <div className="mt-5 rounded-2xl border border-emerald-200 bg-emerald-50/90 p-4 text-xs text-[#1E615A] animate-in fade-in duration-200">
+                <div className="flex items-start gap-2.5">
+                  <span className="shrink-0 text-base">✅</span>
+                  <div className="flex-1">
+                    <p className="font-semibold leading-relaxed">{successMsg}</p>
+                  </div>
+                </div>
               </div>
             )}
 
-            {/* Signup Form */}
-            <form onSubmit={handleSubmit} className="mt-6 space-y-4">
-              <div>
-                <label className="block text-xs font-bold text-[#173B3A]">
-                  Full Name
-                </label>
-                <div className="relative mt-1.5">
-                  <input
-                    type="text"
-                    placeholder="e.g. Shruti Kesharwani"
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    required
-                    className="w-full rounded-xl border border-[#D5E2DC] bg-[#FAFDFB] px-4 py-3 text-sm text-[#173B3A] placeholder-[#9AA8A4] outline-none transition focus:border-[#24645D] focus:bg-white focus:ring-2 focus:ring-[#24645D]/15"
-                  />
+            {/* Error Message Alert */}
+            {errorMsg && (
+              <div className="mt-5 rounded-2xl border border-rose-200 bg-rose-50/90 p-4 text-xs text-rose-800 animate-in fade-in duration-200">
+                <div className="flex items-start gap-2.5">
+                  <span className="shrink-0 text-base">⚠️</span>
+                  <div className="flex-1">
+                    <p className="font-semibold leading-relaxed">{errorMsg}</p>
+                    {isNotRegistered && (
+                      <div className="mt-3">
+                        <Link
+                          to="/signup"
+                          className="inline-flex items-center gap-1.5 rounded-lg bg-[#24645D] px-3.5 py-2 text-xs font-bold text-white shadow-xs transition hover:bg-[#1b4d47]"
+                        >
+                          Register Free Account →
+                        </Link>
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
+            )}
 
+            {/* Login Form */}
+            <form onSubmit={handleLogin} className="mt-6 space-y-4">
               <div>
                 <label className="block text-xs font-bold text-[#173B3A]">
                   Email Address
@@ -161,7 +153,7 @@ const Register = () => {
                 <div className="relative mt-1.5">
                   <input
                     type="email"
-                    placeholder="e.g. name@example.com"
+                    placeholder="e.g. john@example.com"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     required
@@ -171,17 +163,18 @@ const Register = () => {
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-[#173B3A]">
-                  Create Password
-                </label>
+                <div className="flex items-center justify-between">
+                  <label className="block text-xs font-bold text-[#173B3A]">
+                    Password
+                  </label>
+                </div>
                 <div className="relative mt-1.5">
                   <input
                     type={showPassword ? "text" : "password"}
-                    placeholder="At least 6 characters"
+                    placeholder="Enter your password"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     required
-                    minLength={6}
                     className="w-full rounded-xl border border-[#D5E2DC] bg-[#FAFDFB] px-4 py-3 pr-12 text-sm text-[#173B3A] placeholder-[#9AA8A4] outline-none transition focus:border-[#24645D] focus:bg-white focus:ring-2 focus:ring-[#24645D]/15"
                   />
                   <button
@@ -203,41 +196,32 @@ const Register = () => {
                 {loading ? (
                   <>
                     <span className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent"></span>
-                    <span>Creating account...</span>
+                    <span>Signing in...</span>
                   </>
                 ) : (
-                  <span>Create Account →</span>
+                  <span>Sign In →</span>
                 )}
               </button>
             </form>
 
-            {/* Switch to Login */}
+            {/* Switch to Signup */}
             <div className="mt-6 border-t border-[#E4EBE7] pt-5 text-center">
               <p className="text-xs text-[#71817D]">
-                Already have an account?{" "}
+                Don't have an account yet?{" "}
                 <Link
-                  to="/login"
+                  to="/signup"
                   className="font-bold text-[#24645D] hover:underline"
                 >
-                  Sign In
+                  Create an account
                 </Link>
               </p>
             </div>
           </div>
 
-          {/* Benefits Info Card */}
-          <div className="mt-4 flex items-center justify-center gap-4 text-xs text-[#81908C]">
-            <span className="flex items-center gap-1">
-              <span className="text-[#24645D]">✓</span> 100% Free
-            </span>
-            <span>•</span>
-            <span className="flex items-center gap-1">
-              <span className="text-[#24645D]">✓</span> Save Your Progress
-            </span>
-            <span>•</span>
-            <span className="flex items-center gap-1">
-              <span className="text-[#24645D]">✓</span> Earn Badges
-            </span>
+          {/* Friendly Tip Box */}
+          <div className="mt-4 rounded-2xl border border-[#E4EBE7] bg-[#FAFDFB] p-4 text-center text-xs text-[#71817D]">
+            <span>🌱 </span>
+            <span className="font-semibold text-[#173B3A]">New to NetLearn?</span> It only takes 30 seconds to sign up and start your first lesson!
           </div>
         </div>
       </main>
@@ -245,4 +229,4 @@ const Register = () => {
   );
 };
 
-export default Register;
+export default Login;

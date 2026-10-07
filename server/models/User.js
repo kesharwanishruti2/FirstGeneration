@@ -16,6 +16,11 @@ const userSchema = new mongoose.Schema(
       trim: true
     },
 
+    password: {
+      type: String,
+      default: ""
+    },
+
     assessment: {
       score: {
         type: Number,

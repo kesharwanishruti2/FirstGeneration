@@ -1,21 +1,18 @@
-import connectDB from "./config/db.js";
 import dotenv from "dotenv";
-import app from "./app/app.js";
-import mongoose from "mongoose";
-
 dotenv.config();
-connectDB();
+
+import connectDB from "./config/db.js";
+import app from "./app/app.js";
+
 const PORT = process.env.PORT || 3000;
 
-mongoose
-  .connect(process.env.MONGO_URI)
+// Connect to MongoDB first, then start Express server
+connectDB()
   .then(() => {
-    console.log("MongoDB connected");
-
     app.listen(PORT, () => {
-      console.log(`Server running on port ${PORT}`);
+      console.log(`🚀 Server running on http://localhost:${PORT}`);
     });
   })
-  .catch((error) => {
-    console.log("MongoDB connection failed:", error.message);
+  .catch((err) => {
+    console.error("Failed to start server:", err.message);
   });

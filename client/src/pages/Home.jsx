@@ -1,7 +1,48 @@
+import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router";
 
 const Home = () => {
   const navigate = useNavigate();
+  const dropdownRef = useRef(null);
+
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [user, setUser] = useState(() => {
+    try {
+      const stored = localStorage.getItem("user");
+      return stored ? JSON.parse(stored) : null;
+    } catch {
+      return null;
+    }
+  });
+
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem("user");
+      setUser(stored ? JSON.parse(stored) : null);
+    } catch {
+      setUser(null);
+    }
+  }, []);
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+        setMenuOpen(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, []);
+
+  const handleLogout = () => {
+    localStorage.removeItem("user");
+    setUser(null);
+    setMenuOpen(false);
+  };
 
   const modules = [
     {
@@ -62,7 +103,10 @@ const Home = () => {
       {/* ================= NAVIGATION ================= */}
       <header className="sticky top-0 z-50 border-b border-[#E4EBE7] bg-white/90 backdrop-blur-md">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
-          <div className="flex items-center gap-2.5">
+          <div
+            onClick={() => navigate("/")}
+            className="flex cursor-pointer items-center gap-2.5"
+          >
             <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#DCEFE8] text-xl shadow-xs">
               🌐
             </div>
@@ -72,18 +116,91 @@ const Home = () => {
           </div>
 
           <div className="flex items-center gap-3">
-            <button
-              onClick={() => navigate("/register")}
-              className="rounded-xl border border-[#DCEFE8] bg-white px-4 py-2 text-sm font-semibold text-[#1E615A] transition hover:bg-[#F0F8F5]"
-            >
-              Sign In
-            </button>
-            <button
-              onClick={() => navigate("/register")}
-              className="rounded-xl bg-[#24645D] px-5 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-[#1b4d47] hover:shadow"
-            >
-              Start Learning
-            </button>
+            {user && user._id ? (
+              <div className="relative" ref={dropdownRef}>
+                <button
+                  onClick={() => setMenuOpen((prev) => !prev)}
+                  className="flex items-center gap-2.5 rounded-2xl border border-[#DCEFE8] bg-white px-3.5 py-1.5 shadow-xs transition hover:border-[#24645D]/40 hover:bg-[#FAFDFB] focus:outline-none focus:ring-2 focus:ring-[#24645D]/15"
+                  aria-expanded={menuOpen}
+                >
+                  <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-[#24645D] text-xs font-bold text-white shadow-xs">
+                    {user.name ? user.name.charAt(0).toUpperCase() : "U"}
+                  </div>
+                  <div className="text-left hidden sm:block">
+                    <p className="text-xs font-bold text-[#173B3A] leading-tight">
+                      {user.name || "Learner"}
+                    </p>
+                    <p className="text-[10px] text-[#71817D]">
+                      {user.assessment?.level && user.assessment.level !== "Not assessed"
+                        ? user.assessment.level
+                        : "Learner"}
+                    </p>
+                  </div>
+                  <svg
+                    className={`h-4 w-4 text-[#71817D] transition-transform duration-200 ${
+                      menuOpen ? "rotate-180" : ""
+                    }`}
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M19 9l-7 7-7-7"
+                    />
+                  </svg>
+                </button>
+
+                {/* Dropdown Card */}
+                {menuOpen && (
+                  <div className="absolute right-0 top-full mt-2 w-60 rounded-2xl border border-[#E4EBE7] bg-white p-2 shadow-2xl shadow-emerald-950/10 z-50 animate-in fade-in zoom-in-95 duration-150">
+                    {/* User Header */}
+                    <div className="px-3 py-2.5 border-b border-[#F0F4F2]">
+                      <p className="text-xs font-bold text-[#173B3A] truncate">
+                        {user.name || "Learner"}
+                      </p>
+                      {user.email && (
+                        <p className="text-[11px] text-[#71817D] truncate mt-0.5">
+                          {user.email}
+                        </p>
+                      )}
+                      <div className="mt-2 inline-flex items-center gap-1 rounded-md bg-[#E4F3EC] px-2 py-0.5 text-[10px] font-semibold text-[#1E615A]">
+                        <span>🌱</span>
+                        <span>{user.assessment?.level || "Learner"}</span>
+                      </div>
+                    </div>
+
+                    {/* Sign Out Only */}
+                    <div className="pt-1">
+                      <button
+                        onClick={handleLogout}
+                        className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-xs font-semibold text-rose-600 transition hover:bg-rose-50"
+                      >
+                        <span className="text-sm">🚪</span>
+                        <span>Sign Out</span>
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <>
+                <button
+                  onClick={() => navigate("/login")}
+                  className="rounded-xl border border-[#DCEFE8] bg-white px-4 py-2 text-sm font-semibold text-[#1E615A] transition hover:bg-[#F0F8F5]"
+                >
+                  Sign In
+                </button>
+                <button
+                  onClick={() => navigate("/signup")}
+                  className="rounded-xl bg-[#24645D] px-5 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-[#1b4d47] hover:shadow"
+                >
+                  Start Learning
+                </button>
+              </>
+            )}
           </div>
         </div>
       </header>
@@ -110,19 +227,37 @@ const Home = () => {
               </p>
 
               <div className="mt-8 flex flex-col items-center gap-3.5 sm:flex-row lg:justify-start">
-                <button
-                  onClick={() => navigate("/register")}
-                  className="w-full rounded-xl bg-[#24645D] px-7 py-3.5 text-base font-semibold text-white shadow-md transition hover:bg-[#1b4d47] hover:shadow-lg sm:w-auto"
-                >
-                  Start Learning Free →
-                </button>
-
-                <button
-                  onClick={() => navigate("/assessment")}
-                  className="w-full rounded-xl border border-[#D5E2DC] bg-white px-6 py-3.5 text-base font-semibold text-[#173B3A] transition hover:bg-[#F2F6F4] sm:w-auto"
-                >
-                  Quick Assessment
-                </button>
+                {user && user._id ? (
+                  <>
+                    <button
+                      onClick={() => navigate("/dashboard")}
+                      className="w-full rounded-xl bg-[#24645D] px-7 py-3.5 text-base font-semibold text-white shadow-md transition hover:bg-[#1b4d47] hover:shadow-lg sm:w-auto"
+                    >
+                      Go to Dashboard →
+                    </button>
+                    <button
+                      onClick={() => navigate("/lesson/1")}
+                      className="w-full rounded-xl border border-[#D5E2DC] bg-white px-6 py-3.5 text-base font-semibold text-[#173B3A] transition hover:bg-[#F2F6F4] sm:w-auto"
+                    >
+                      Continue Lessons
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <button
+                      onClick={() => navigate("/signup")}
+                      className="w-full rounded-xl bg-[#24645D] px-7 py-3.5 text-base font-semibold text-white shadow-md transition hover:bg-[#1b4d47] hover:shadow-lg sm:w-auto"
+                    >
+                      Start Learning Free →
+                    </button>
+                    <button
+                      onClick={() => navigate("/assessment")}
+                      className="w-full rounded-xl border border-[#D5E2DC] bg-white px-6 py-3.5 text-base font-semibold text-[#173B3A] transition hover:bg-[#F2F6F4] sm:w-auto"
+                    >
+                      Quick Assessment
+                    </button>
+                  </>
+                )}
               </div>
 
               <div className="mt-8 flex items-center justify-center gap-6 text-xs text-[#71817D] lg:justify-start">
@@ -286,12 +421,21 @@ const Home = () => {
             Start learning today with NetLearn. No credit card or previous experience required.
           </p>
           <div className="mt-8 flex justify-center">
-            <button
-              onClick={() => navigate("/register")}
-              className="rounded-xl bg-[#E67E52] px-8 py-3.5 text-base font-semibold text-white shadow-lg transition hover:bg-[#d66e43] hover:shadow-xl"
-            >
-              Get Started Now — It's Free
-            </button>
+            {user && user._id ? (
+              <button
+                onClick={() => navigate("/dashboard")}
+                className="rounded-xl bg-[#E67E52] px-8 py-3.5 text-base font-semibold text-white shadow-lg transition hover:bg-[#d66e43] hover:shadow-xl"
+              >
+                Go to Your Dashboard →
+              </button>
+            ) : (
+              <button
+                onClick={() => navigate("/signup")}
+                className="rounded-xl bg-[#E67E52] px-8 py-3.5 text-base font-semibold text-white shadow-lg transition hover:bg-[#d66e43] hover:shadow-xl"
+              >
+                Get Started Now — It's Free
+              </button>
+            )}
           </div>
         </div>
       </section>

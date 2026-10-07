@@ -33,7 +33,12 @@ function QuizResult() {
       : "Keep Practicing! You'll get there. 💪";
 
   useEffect(() => {
-    if (hasSaved.current || !user?._id) return;
+    if (!user || !user._id) {
+      navigate("/login");
+      return;
+    }
+
+    if (hasSaved.current) return;
     hasSaved.current = true;
 
     const saveQuizAndProgress = async () => {
@@ -85,25 +90,25 @@ function QuizResult() {
   return (
     <div className="min-h-screen bg-[#F7F9F6] text-[#173B3A]">
       {/* Header */}
-      <header className="border-b border-[#E4EBE7] bg-white px-6 py-5">
+      <header className="border-b border-[#E4EBE7] bg-white px-4 py-3 sm:px-6 sm:py-5">
         <div
           onClick={() => navigate("/dashboard")}
           className="mx-auto flex max-w-5xl cursor-pointer items-center gap-2"
         >
-          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#DCEFE8] text-lg">
+          <div className="flex h-8 w-8 sm:h-9 sm:w-9 items-center justify-center rounded-xl bg-[#DCEFE8] text-base sm:text-lg">
             🌐
           </div>
-          <h1 className="font-bold">
+          <h1 className="font-bold text-[#173B3A]">
             Net<span className="text-[#E67E52]">Learn</span>
           </h1>
         </div>
       </header>
 
       {/* Result Card */}
-      <main className="flex min-h-[calc(100vh-73px)] items-center justify-center px-6 py-10">
-        <div className="w-full max-w-lg rounded-3xl border border-[#E4EBE7] bg-white p-8 text-center shadow-xl shadow-emerald-950/5">
+      <main className="flex min-h-[calc(100vh-65px)] items-center justify-center px-4 py-8 sm:px-6 sm:py-10">
+        <div className="w-full max-w-lg rounded-3xl border border-[#E4EBE7] bg-white p-5 sm:p-8 text-center shadow-xl shadow-emerald-950/5">
           {/* Trophy / Medal */}
-          <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-2xl bg-[#E4F3EC] text-4xl shadow-xs">
+          <div className="mx-auto flex h-16 w-16 sm:h-20 sm:w-20 items-center justify-center rounded-2xl bg-[#E4F3EC] text-3xl sm:text-4xl shadow-xs">
             {passed ? "🏆" : "🌱"}
           </div>
 

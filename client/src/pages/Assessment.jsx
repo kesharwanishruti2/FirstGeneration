@@ -1,77 +1,55 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import axios from "axios";
 import { useNavigate } from "react-router";
-
-const questions = [
-  {
-    question: "What is the Internet?",
-    options: [
-      "A mobile app",
-      "A network that connects computers and devices",
-      "A phone",
-      "A website"
-    ],
-    answer: 1,
-    explanation: "The internet is a global network connecting billions of computers, phones, and devices worldwide."
-  },
-  {
-    question: "What is Google mainly used for?",
-    options: [
-      "Searching for information online",
-      "Charging a phone",
-      "Printing photos",
-      "Starting a computer"
-    ],
-    answer: 0,
-    explanation: "Google is a search engine designed to help you search and find information, articles, and websites on the web."
-  },
-  {
-    question: "Which one is a web browser?",
-    options: [
-      "Chrome",
-      "WhatsApp",
-      "Calculator",
-      "Camera"
-    ],
-    answer: 0,
-    explanation: "Google Chrome is a web browser used to view websites. WhatsApp is a messaging app, and calculator/camera are offline tools."
-  },
-  {
-    question: "Which one can open a website?",
-    options: [
-      "A web browser",
-      "A speaker",
-      "A calculator",
-      "A charger"
-    ],
-    answer: 0,
-    explanation: "Web browsers like Chrome, Edge, and Safari are built specifically to load and display websites."
-  },
-  {
-    question: "Which is a stronger password?",
-    options: [
-      "123456",
-      "password",
-      "Shruti123",
-      "A mix of letters, numbers and symbols"
-    ],
-    answer: 3,
-    explanation: "Strong passwords combine uppercase and lowercase letters, numbers, and special symbols so they cannot be easily guessed."
-  }
-];
+import { getRandomAssessmentQuestions } from "../data/questionBank";
 
 function Assessment() {
   const navigate = useNavigate();
-  const [score, setScore] = useState(0);
+  const dropdownRef = useRef(null);
+  const [menuOpen, setMenuOpen] = useState(false);
+
+  const [user, setUser] = useState(() => {
+    return JSON.parse(localStorage.getItem("user") || "null");
+  });
+
+  // Close dropdown on outside click
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+        setMenuOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, []);
+
+  const handleLogout = () => {
+    localStorage.removeItem("user");
+    navigate("/login");
+  };
+
+  // Randomized questions from the 100+ question bank
+  const [questions, setQuestions] = useState(() => getRandomAssessmentQuestions(5));
   const [current, setCurrent] = useState(0);
   const [selected, setSelected] = useState(null);
   const [isAnswerChecked, setIsAnswerChecked] = useState(false);
+  const [score, setScore] = useState(0);
   const [answers, setAnswers] = useState([]);
   const [loading, setLoading] = useState(false);
 
-  const currentQ = questions[current];
+  const handleRestart = () => {
+    setQuestions(getRandomAssessmentQuestions(5));
+    setCurrent(0);
+    setSelected(null);
+    setIsAnswerChecked(false);
+    setScore(0);
+    setAnswers([]);
+  };
 
-  // When user selects an option
+  const currentQ = questions[current] || questions[0];
+
   const handleSelect = (index) => {
     if (isAnswerChecked) return;
 
@@ -79,9 +57,8 @@ function Assessment() {
     setIsAnswerChecked(true);
 
     const isCorrect = index === currentQ.answer;
-    const newScore = isCorrect ? score + 1 : score;
     if (isCorrect) {
-      setScore(newScore);
+      setScore((prev) => prev + 1);
     }
 
     const answerRecord = {
@@ -94,7 +71,6 @@ function Assessment() {
     setAnswers((prev) => [...prev, answerRecord]);
   };
 
-  // Move to next question or submit assessment
   const handleNext = async () => {
     if (current < questions.length - 1) {
       setCurrent((prev) => prev + 1);
@@ -105,12 +81,13 @@ function Assessment() {
 
     setLoading(true);
 
-    const user = JSON.parse(localStorage.getItem("user") || "null");
+    // Calculate score reliably from all answered records
+    const finalScore = answers.filter((a) => a.isCorrect).length;
 
     const level =
-      score >= 4
+      finalScore >= 4
         ? "Confident Beginner"
-        : score >= 2
+        : finalScore >= 2
         ? "Beginner"
         : "Starting Out";
 
@@ -118,7 +95,7 @@ function Assessment() {
       ...(user || {}),
       name: user?.name || "Learner",
       assessment: {
-        score,
+        score: finalScore,
         total: questions.length,
         level,
         answers
@@ -130,7 +107,7 @@ function Assessment() {
         const response = await axios.patch(
           `http://localhost:3000/api/users/${user._id}/assessment`,
           {
-            score,
+            score: finalScore,
             total: questions.length,
             level,
             answers
@@ -146,169 +123,334 @@ function Assessment() {
         console.error("Assessment patch failed:", error);
         localStorage.setItem("user", JSON.stringify(updatedUser));
       }
+      navigate("/dashboard");
     } else {
-      localStorage.setItem("user", JSON.stringify(updatedUser));
+      localStorage.setItem(
+        "pendingAssessment",
+        JSON.stringify({
+          score: finalScore,
+          total: questions.length,
+          level,
+          answers
+        })
+      );
+      navigate("/signup");
     }
-
-    navigate("/dashboard");
   };
 
   const progressPercentage = Math.round(((current + 1) / questions.length) * 100);
+  const assessmentLevel = user?.assessment?.level || "Learner";
 
   return (
-    <div className="flex min-h-screen flex-col bg-[#F7F9F6] text-[#173B3A]">
-      {/* ================= HEADER ================= */}
-      <header className="border-b border-[#E4EBE7] bg-white px-6 py-4">
-        <div className="mx-auto flex max-w-4xl items-center justify-between">
-          <div className="flex items-center gap-2">
-            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#DCEFE8] text-lg">
-              🌐
-            </div>
-            <span className="font-bold">
-              Net<span className="text-[#E67E52]">Learn</span>
-            </span>
+    <div className="min-h-screen bg-[#F7F9F6] text-[#173B3A]">
+      {/* ================= SIDEBAR (Desktop) ================= */}
+      <aside className="hidden md:block fixed left-0 top-0 z-40 h-screen w-64 border-r border-[#E4EBE7] bg-white px-5 py-6 shadow-xs">
+        {/* Logo */}
+        <div
+          onClick={() => navigate("/")}
+          className="flex cursor-pointer items-center gap-2.5 px-2"
+        >
+          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#DCEFE8] text-lg shadow-xs">
+            🌐
           </div>
-
-          <div className="text-xs font-semibold text-[#81908C]">
-            Question <span className="text-[#173B3A]">{current + 1}</span> of {questions.length}
-          </div>
+          <h1 className="text-lg font-bold text-[#173B3A]">
+            Net<span className="text-[#E67E52]">Learn</span>
+          </h1>
         </div>
 
-        {/* Progress bar */}
-        <div className="mx-auto mt-3 max-w-4xl">
-          <div className="h-1.5 w-full overflow-hidden rounded-full bg-[#E5EBE8]">
-            <div
-              className="h-full rounded-full bg-[#24645D] transition-all duration-300"
-              style={{ width: `${progressPercentage}%` }}
-            />
-          </div>
-        </div>
-      </header>
+        {/* Navigation - Lessons removed */}
+        <nav className="mt-8 space-y-2">
+          <button
+            onClick={() => navigate("/dashboard")}
+            className="flex w-full items-center gap-3 rounded-xl px-4 py-3 text-sm text-[#64716F] transition hover:bg-[#F4F7F5] hover:text-[#173B3A]"
+          >
+            <span className="text-base">⌂</span>
+            <span>Dashboard</span>
+          </button>
 
-      {/* ================= QUESTION CARD ================= */}
-      <main className="flex flex-1 items-center justify-center px-4 py-10">
-        <div className="w-full max-w-2xl rounded-3xl border border-[#E4EBE7] bg-white p-6 shadow-xl shadow-emerald-950/5 sm:p-10">
-          
-          <div className="flex items-center gap-2">
-            <span className="rounded-full bg-[#E4F3EC] px-3 py-1 text-xs font-semibold text-[#1E615A]">
-              🌱 Initial Assessment
-            </span>
-            <span className="text-xs text-[#81908C]">
-              {progressPercentage}% Complete
-            </span>
-          </div>
+          <button
+            onClick={() => navigate("/quiz/internet-basics")}
+            className="flex w-full items-center gap-3 rounded-xl px-4 py-3 text-sm text-[#64716F] transition hover:bg-[#F4F7F5] hover:text-[#173B3A]"
+          >
+            <span className="text-base">✓</span>
+            <span>Quizzes</span>
+          </button>
 
-          <h2 className="mt-4 text-xl font-bold tracking-tight text-[#173B3A] sm:text-2xl">
-            {currentQ.question}
-          </h2>
+          <button
+            onClick={() => navigate("/assessment")}
+            className="flex w-full items-center gap-3 rounded-xl bg-[#E4F3EC] px-4 py-3 text-sm font-semibold text-[#1E615A]"
+          >
+            <span className="text-base">📊</span>
+            <span>Assessment</span>
+          </button>
+        </nav>
 
-          <p className="mt-1 text-xs text-[#71817D]">
-            Click the answer that matches your current knowledge:
+        {/* Bottom encouragement message */}
+        <div className="absolute bottom-6 left-5 right-5 rounded-2xl bg-[#F1F7F1] p-4">
+          <div className="text-xl">🌟</div>
+          <p className="mt-2 text-xs font-semibold text-[#315B4F]">
+            100+ Skill Assessment
           </p>
+          <p className="mt-1 text-[11px] leading-4 text-[#71817D]">
+            Fresh randomized questions every time to accurately evaluate your confidence level.
+          </p>
+        </div>
+      </aside>
 
-          <div className="mt-6 space-y-3">
-            {currentQ.options.map((option, index) => {
-              const isSelected = selected === index;
-              const isCorrectAnswer = index === currentQ.answer;
+      {/* ================= MOBILE BOTTOM NAV ================= */}
+      <nav className="fixed bottom-0 left-0 right-0 z-40 flex items-center justify-around border-t border-[#E4EBE7] bg-white/95 backdrop-blur-md px-3 py-2 shadow-lg md:hidden">
+        <button
+          onClick={() => navigate("/dashboard")}
+          className="flex flex-col items-center gap-0.5 py-1 text-xs font-medium text-[#64716F] transition hover:text-[#173B3A]"
+        >
+          <span className="text-base">⌂</span>
+          <span>Dashboard</span>
+        </button>
+        <button
+          onClick={() => navigate("/quiz/internet-basics")}
+          className="flex flex-col items-center gap-0.5 py-1 text-xs font-medium text-[#64716F] transition hover:text-[#173B3A]"
+        >
+          <span className="text-base">✓</span>
+          <span>Quizzes</span>
+        </button>
+        <button
+          onClick={() => navigate("/assessment")}
+          className="flex flex-col items-center gap-0.5 py-1 text-xs font-bold text-[#1E615A]"
+        >
+          <span className="text-base">📊</span>
+          <span>Assessment</span>
+        </button>
+      </nav>
 
-              let optionClass = "border-[#E4EBE7] bg-[#FAFDFB] text-[#334D48] hover:border-[#24645D]/40 hover:bg-white";
-              let badgeColor = "border border-[#CCD8D2] bg-white text-[#71817D]";
+      {/* ================= MAIN CONTENT ================= */}
+      <main className="md:ml-64">
+        {/* Top Navbar */}
+        <header className="sticky top-0 z-30 flex items-center justify-between border-b border-[#E4EBE7] bg-white/90 backdrop-blur-md px-4 py-3 sm:px-6 md:px-10">
+          <div className="flex items-center gap-3">
+            <div
+              onClick={() => navigate("/")}
+              className="flex cursor-pointer items-center gap-2 md:hidden"
+            >
+              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#DCEFE8] text-base">
+                🌐
+              </div>
+              <h1 className="font-bold text-[#173B3A]">
+                Net<span className="text-[#E67E52]">Learn</span>
+              </h1>
+            </div>
 
-              if (isAnswerChecked) {
-                if (isCorrectAnswer) {
-                  optionClass = "border-emerald-500 bg-emerald-50 text-emerald-950 ring-2 ring-emerald-500/20";
-                  badgeColor = "bg-emerald-600 text-white";
-                } else if (isSelected && !isCorrectAnswer) {
-                  optionClass = "border-red-400 bg-red-50 text-red-950 ring-2 ring-red-400/20";
-                  badgeColor = "bg-red-500 text-white";
-                } else {
-                  optionClass = "border-[#E4EBE7] bg-white text-gray-400 opacity-60";
-                  badgeColor = "border border-gray-200 bg-gray-100 text-gray-400";
-                }
-              }
+            <div className="hidden md:block">
+              <p className="text-sm text-[#81908C]">
+                Baseline Digital Skill Assessment
+              </p>
+            </div>
+          </div>
 
-              return (
-                <button
-                  key={option}
-                  type="button"
-                  disabled={isAnswerChecked}
-                  onClick={() => handleSelect(index)}
-                  className={`flex w-full items-center justify-between rounded-2xl border p-4 text-left text-sm font-medium transition duration-150 ${optionClass}`}
+          {/* Profile Dropdown (Only Logout) */}
+          {user && user._id ? (
+            <div className="relative" ref={dropdownRef}>
+              <button
+                onClick={() => setMenuOpen((prev) => !prev)}
+                className="flex items-center gap-2.5 rounded-2xl border border-[#DCEFE8] bg-white px-3 py-1.5 shadow-xs transition hover:border-[#24645D]/40 hover:bg-[#FAFDFB] focus:outline-none focus:ring-2 focus:ring-[#24645D]/15"
+                aria-expanded={menuOpen}
+              >
+                <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-[#24645D] text-xs font-bold text-white shadow-xs">
+                  {user.name ? user.name.charAt(0).toUpperCase() : "U"}
+                </div>
+                <div className="text-left hidden sm:block">
+                  <p className="text-xs font-bold text-[#173B3A] leading-tight">
+                    {user.name || "Learner"}
+                  </p>
+                  <p className="text-[10px] text-[#71817D]">
+                    {assessmentLevel}
+                  </p>
+                </div>
+                <svg
+                  className={`h-4 w-4 text-[#71817D] transition-transform duration-200 ${
+                    menuOpen ? "rotate-180" : ""
+                  }`}
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
                 >
-                  <div className="flex items-center gap-3">
-                    <span
-                      className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-bold transition ${badgeColor}`}
-                    >
-                      {String.fromCharCode(65 + index)}
-                    </span>
-                    <span>{option}</span>
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M19 9l-7 7-7-7"
+                  />
+                </svg>
+              </button>
+
+              {/* Dropdown Card */}
+              {menuOpen && (
+                <div className="absolute right-0 top-full mt-2 w-60 rounded-2xl border border-[#E4EBE7] bg-white p-2 shadow-2xl shadow-emerald-950/10 z-50 animate-in fade-in zoom-in-95 duration-150">
+                  <div className="px-3 py-2.5 border-b border-[#F0F4F2]">
+                    <p className="text-xs font-bold text-[#173B3A] truncate">
+                      {user.name || "Learner"}
+                    </p>
+                    {user.email && (
+                      <p className="text-[11px] text-[#71817D] truncate mt-0.5">
+                        {user.email}
+                      </p>
+                    )}
+                    <div className="mt-2 inline-flex items-center gap-1 rounded-md bg-[#E4F3EC] px-2 py-0.5 text-[10px] font-semibold text-[#1E615A]">
+                      <span>🌱</span>
+                      <span>{assessmentLevel}</span>
+                    </div>
                   </div>
 
-                  {isAnswerChecked && isCorrectAnswer && (
-                    <span className="flex items-center gap-1 rounded-full bg-emerald-100 px-2.5 py-0.5 text-xs font-bold text-emerald-800">
-                      ✓ Correct
-                    </span>
-                  )}
-                  {isAnswerChecked && isSelected && !isCorrectAnswer && (
-                    <span className="flex items-center gap-1 rounded-full bg-red-100 px-2.5 py-0.5 text-xs font-bold text-red-800">
-                      ✗ Wrong
-                    </span>
-                  )}
-                </button>
-              );
-            })}
+                  {/* Sign Out Only */}
+                  <div className="pt-1">
+                    <button
+                      onClick={handleLogout}
+                      className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-xs font-semibold text-rose-600 transition hover:bg-rose-50"
+                    >
+                      <span className="text-sm">🚪</span>
+                      <span>Sign Out</span>
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          ) : (
+            <button
+              onClick={() => navigate("/login")}
+              className="rounded-xl border border-[#DCEFE8] bg-white px-3.5 py-1.5 text-xs font-semibold text-[#1E615A] hover:bg-[#F0F8F5]"
+            >
+              Sign In
+            </button>
+          )}
+        </header>
+
+        {/* Content Body */}
+        <div className="mx-auto max-w-4xl px-4 py-6 sm:px-6 md:px-10 md:py-8 pb-24 md:pb-10">
+          {/* Assessment Header banner & Controls */}
+          <div className="mb-5 sm:mb-6 flex items-center justify-between flex-wrap gap-2.5">
+            <div>
+              <div className="inline-flex items-center gap-2 rounded-full bg-[#E4F3EC] px-3.5 py-1 text-xs font-semibold text-[#1E615A]">
+                <span>🌱</span>
+                <span>Question {current + 1} of {questions.length}</span>
+              </div>
+              <h1 className="mt-1 text-xl sm:text-2xl font-bold tracking-tight text-[#173B3A]">
+                Evaluate Your Starting Skill Level
+              </h1>
+            </div>
+
+            <button
+              onClick={handleRestart}
+              className="inline-flex items-center gap-1.5 rounded-xl border border-[#D5E2DC] bg-white px-3 py-1.5 sm:px-3.5 sm:py-2 text-xs font-semibold text-[#1E615A] transition hover:bg-[#F0F8F5]"
+              title="Draw new randomized assessment questions"
+            >
+              <span>🎲</span>
+              <span>New Questions</span>
+            </button>
           </div>
 
-          {/* Instant Explanation / Feedback Box */}
-          {isAnswerChecked && (
-            <div
-              className={`mt-6 rounded-2xl border p-4 text-xs leading-relaxed transition-all duration-200 ${
-                selected === currentQ.answer
-                  ? "border-emerald-200 bg-[#F2FAF5] text-emerald-900"
-                  : "border-amber-200 bg-[#FDF9F2] text-[#694813]"
-              }`}
-            >
-              <div className="flex items-start gap-2.5">
-                <span className="text-base">
-                  {selected === currentQ.answer ? "🎉" : "💡"}
-                </span>
-                <div>
-                  <p className="font-bold text-sm">
-                    {selected === currentQ.answer
-                      ? "Correct!"
-                      : `The correct answer is: "${currentQ.options[currentQ.answer]}"`}
-                  </p>
-                  {currentQ.explanation && (
-                    <p className="mt-1 text-xs opacity-90">
+          {/* Progress Card */}
+          <div className="rounded-2xl border border-[#E4EBE7] bg-white p-4 sm:p-5 shadow-xs">
+            <div className="flex items-center justify-between text-xs">
+              <span className="font-semibold text-[#81908C]">
+                Progress: {current + 1} / {questions.length} answered
+              </span>
+              <span className="font-bold text-[#24645D]">
+                Current Score: {score} / {questions.length}
+              </span>
+            </div>
+            <div className="mt-2.5 sm:mt-3 h-2 overflow-hidden rounded-full bg-[#E5EBE8]">
+              <div
+                className="h-2 rounded-full bg-[#24645D] transition-all duration-300"
+                style={{ width: `${progressPercentage}%` }}
+              />
+            </div>
+          </div>
+
+          {/* Main Question Card */}
+          <div className="mt-5 sm:mt-6 rounded-3xl border border-[#E4EBE7] bg-white p-5 sm:p-7 shadow-xs">
+            <h2 className="text-xl font-bold text-[#173B3A] md:text-2xl leading-relaxed">
+              {currentQ?.question}
+            </h2>
+
+            {/* Options List */}
+            <div className="mt-6 space-y-3">
+              {currentQ?.options.map((opt, idx) => {
+                let cardStyle =
+                  "border-[#E4EBE7] bg-[#FAFDFB] hover:border-[#24645D]/40 hover:bg-[#F0F8F5]";
+
+                if (isAnswerChecked) {
+                  if (idx === currentQ.answer) {
+                    cardStyle = "border-emerald-500 bg-emerald-50 text-emerald-900 ring-2 ring-emerald-500/20";
+                  } else if (selected === idx) {
+                    cardStyle = "border-rose-400 bg-rose-50 text-rose-900";
+                  } else {
+                    cardStyle = "border-[#E4EBE7] bg-white opacity-50";
+                  }
+                } else if (selected === idx) {
+                  cardStyle = "border-[#24645D] bg-[#E4F3EC] text-[#173B3A] ring-2 ring-[#24645D]/20";
+                }
+
+                return (
+                  <button
+                    key={idx}
+                    onClick={() => handleSelect(idx)}
+                    disabled={isAnswerChecked}
+                    className={`flex w-full items-center justify-between rounded-2xl border p-4 text-left text-sm font-medium transition duration-150 ${cardStyle}`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-xl bg-white border border-[#D5E2DC] text-xs font-bold text-[#173B3A] shadow-2xs">
+                        {String.fromCharCode(65 + idx)}
+                      </span>
+                      <span>{opt}</span>
+                    </div>
+
+                    {isAnswerChecked && idx === currentQ.answer && (
+                      <span className="shrink-0 text-emerald-600 font-bold text-base">✓</span>
+                    )}
+                    {isAnswerChecked && selected === idx && idx !== currentQ.answer && (
+                      <span className="shrink-0 text-rose-600 font-bold text-base">✗</span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Explanation card after answering */}
+            {isAnswerChecked && (
+              <div className="mt-6 rounded-2xl border border-[#DCEFE8] bg-[#F4FAF7] p-4 text-xs text-[#1E615A] animate-in fade-in duration-200">
+                <div className="flex items-start gap-2.5">
+                  <span className="text-base">💡</span>
+                  <div className="flex-1">
+                    <p className="font-bold text-[#173B3A]">Explanation:</p>
+                    <p className="mt-0.5 leading-relaxed text-[#516B64]">
                       {currentQ.explanation}
                     </p>
-                  )}
+                  </div>
                 </div>
               </div>
+            )}
+
+            {/* Bottom Actions */}
+            <div className="mt-8 flex items-center justify-between pt-4 border-t border-[#E4EBE7]">
+              <button
+                onClick={() => navigate("/dashboard")}
+                className="text-xs font-semibold text-[#81908C] hover:text-[#173B3A]"
+              >
+                ← Back to Dashboard
+              </button>
+
+              <button
+                onClick={handleNext}
+                disabled={!isAnswerChecked || loading}
+                className="rounded-xl bg-[#24645D] px-6 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-[#1b4d47] hover:shadow disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                {loading
+                  ? "Saving Assessment..."
+                  : current < questions.length - 1
+                  ? "Next Question →"
+                  : "Complete & See My Level →"}
+              </button>
             </div>
-          )}
-
-          <div className="mt-8 flex items-center justify-between border-t border-[#E4EBE7] pt-6">
-            <button
-              onClick={() => navigate("/")}
-              className="text-xs font-semibold text-[#81908C] hover:text-[#173B3A]"
-            >
-              Skip to Home
-            </button>
-
-            <button
-              onClick={handleNext}
-              disabled={!isAnswerChecked || loading}
-              className="rounded-xl bg-[#24645D] px-7 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-[#1b4d47] hover:shadow disabled:cursor-not-allowed disabled:opacity-40"
-            >
-              {loading
-                ? "Submitting..."
-                : current === questions.length - 1
-                ? "Finish Assessment →"
-                : "Next Question →"}
-            </button>
           </div>
-
         </div>
       </main>
     </div>
