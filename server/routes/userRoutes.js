@@ -240,7 +240,7 @@ router.patch("/:id/assessment", async (req, res) => {
         }
       },
       {
-        new: true,
+        returnDocument: "after",
         runValidators: true
       }
     );
@@ -277,7 +277,7 @@ router.patch("/:id/progress", async (req, res) => {
         lessonsCompleted
       },
       {
-        new: true,
+        returnDocument: "after",
         runValidators: true
       }
     );
@@ -320,7 +320,7 @@ router.post("/:id/quiz", async (req, res) => {
         }
       },
       {
-        new: true,
+        returnDocument: "after",
         runValidators: true
       }
     );
